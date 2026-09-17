@@ -1,0 +1,8 @@
+{
+  "url": "https://remoto.<you>.workers.dev",
+  "password": "your-remoto-password",
+  "answer": "",
+  "monitor": 1,
+  "quality": 65,
+  "fps": 20
+}

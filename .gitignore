@@ -1,0 +1,26 @@
+# --- secrets: never commit ---
+worker/.dev.vars
+host/config.json
+*.pem
+
+# --- node / wrangler ---
+node_modules/
+worker/node_modules/
+worker/.wrangler/
+worker/dist/
+worker/worker-configuration.d.ts
+
+# --- python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# --- generated ---
+worker/src/assets.generated.ts
+
+# --- os / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="referrer" content="no-referrer">
+  <title>Remoto Stream</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main id="login" class="screen">
+    <form id="login-form" class="card" autocomplete="off" novalidate>
+      <div class="brand"><span class="dot"></span>Remoto Stream</div>
+      <h1>Low-latency game stream</h1>
+      <p class="hint">Connects your desktop straight to this browser over WebRTC (UDP) for game-grade latency.
+        Run <code>webrtc_host.py</code> on the desktop first. <a href="/">Plain desktop control ›</a></p>
+      <label for="password">Password</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" autofocus required>
+      <label id="answer-label" for="answer" hidden></label>
+      <input id="answer" name="answer" type="password" autocomplete="off" hidden>
+      <button id="connect" type="submit">Connect</button>
+      <p id="login-error" class="error" role="alert" hidden></p>
+    </form>
+    <p class="foot">Direct P2P video · end-to-end encrypted handshake</p>
+  </main>
+
+  <section id="stage" class="screen" hidden>
+    <header id="bar">
+      <div class="group">
+        <span class="brand small"><span class="dot"></span>Remoto Stream</span>
+        <span id="status" class="pill">Connecting…</span>
+      </div>
+      <div class="group center"><span id="stats" class="muted mono">—</span></div>
+      <div class="group">
+        <button id="btn-play" type="button" title="Capture mouse/keyboard and play">🎮 Play</button>
+        <button id="btn-full" type="button" title="Fullscreen">⛶</button>
+        <button id="btn-leave" type="button" class="danger">Disconnect</button>
+      </div>
+    </header>
+    <div id="viewport">
+      <video id="video" playsinline autoplay muted tabindex="0"></video>
+      <div id="overlay" hidden>
+        <div class="card compact">
+          <h2 id="overlay-title">Waiting for the desktop…</h2>
+          <p id="overlay-text" class="hint"></p>
+          <button id="overlay-action" type="button" hidden></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="/stream.js"></script>
+</body>
+</html>

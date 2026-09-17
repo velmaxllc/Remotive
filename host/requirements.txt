@@ -1,0 +1,9 @@
+mss>=9,<11
+numpy>=1.26
+Pillow>=10
+pynput>=1.7
+websockets>=13
+cryptography>=42
+bettercam>=1.0; sys_platform == "win32"
+av>=13
+aiortc>=1.9            # WebRTC (browser low-latency streaming) — webrtc_host.py

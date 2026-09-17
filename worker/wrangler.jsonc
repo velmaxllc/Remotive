@@ -1,0 +1,39 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "remoto",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+
+  // The viewer page. run_worker_first lets the Worker add security headers to every response.
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+
+  // One Durable Object instance ("main") relays encrypted messages between host and viewers.
+  "durable_objects": {
+    "bindings": [{ "name": "RELAY", "class_name": "Relay" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Relay"] }],
+
+  "observability": { "enabled": true }
+
+  // ---- Optional configuration ------------------------------------------------------------------
+  // `npm run setup` sets these for you. You can also set them by hand here (vars) or in the
+  // dashboard (Settings -> Variables and Secrets).
+  //
+  // Secrets (never commit these — set with `npm run setup` or `wrangler secret put`):
+  //   AUTH_HASH        hex SHA-256 of the PBKDF2-derived key (password + optional security answer)  [required]
+  //   SESSION_SECRET   random string that signs viewer session cookies                              [required]
+  //   SECURITY_QUESTION  a second-factor question shown on the login page; blank = password only    [optional]
+  //   SMTP_PASS        password/app-password for the alert email account                            [optional]
+  //
+  // Email alerts are OFF by default. To turn them on, set ALERT_TO plus your SMTP details, e.g.:
+  //   "vars": {
+  //     "ALERT_TO": "you@example.com",
+  //     "ALERT_FROM": "Remoto <you@example.com>",
+  //     "SMTP_HOST": "smtp.gmail.com", "SMTP_PORT": "465", "SMTP_SECURE": "tls", "SMTP_USER": "you@example.com"
+  //   }
+  // ...and set the SMTP_PASS secret. Without ALERT_TO, no email is attempted.
+}

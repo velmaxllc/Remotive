@@ -1,0 +1,12 @@
+# Remoto Stream — install on BOTH the host (desktop) and the client (laptop).
+# The host also uses ../host/requirements.txt (mss, bettercam, pynput, etc.) for capture + injection.
+av>=13                 # PyAV: hardware H.264 encode (host) / decode (client) via ffmpeg
+zfec>=1.5              # Reed-Solomon forward error correction
+cryptography>=42       # AES-256-GCM
+numpy>=1.26
+pygame>=2.5            # client only: low-latency window + raw input
+# host-side capture/encode deps (harmless to install on the client too):
+mss>=9,<11
+Pillow>=10
+pynput>=1.7
+bettercam>=1.0; sys_platform == "win32"

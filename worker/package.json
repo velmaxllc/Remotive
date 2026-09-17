@@ -1,0 +1,22 @@
+{
+  "name": "remoto-relay",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/inline-assets.mjs",
+    "dev": "wrangler dev",
+    "predeploy": "node scripts/inline-assets.mjs",
+    "deploy": "wrangler deploy",
+    "bundle": "node scripts/build-bundle.mjs",
+    "setup": "node scripts/setup-secrets.mjs",
+    "setup:local": "node scripts/setup-secrets.mjs --local",
+    "setup:print": "node scripts/setup-secrets.mjs --print",
+    "types": "wrangler types"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260915.1",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "wrangler": "^4.132.0"
+  }
+}
