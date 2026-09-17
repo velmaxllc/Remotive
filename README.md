@@ -30,8 +30,8 @@ laptop browser  ──▶  your Cloudflare Worker  ◀──  your desktop (Pyth
 
 ### 1. Get the code
 ```bash
-git clone https://github.com/<you>/remotive.git
-cd remotive
+git clone https://github.com/velmaxllc/Remotive.git
+cd Remotive
 ```
 
 ### 2. Deploy your relay
