@@ -1,12 +1,12 @@
-# Remoto Stream
+# Remotive Stream
 
 Your own Sunshine/Moonlight — a low-latency **game** streamer, entirely your code. Same technique the
 real thing uses: **raw UDP** (no relay, no TCP), **Reed-Solomon FEC** so lost packets are rebuilt instead
 of retransmitted, **hardware H.264** on both ends, and a **direct connection** (your LAN, or a Tailscale IP
 over the internet). Every packet is AES-256-GCM encrypted from a password.
 
-This is separate from the browser-based Remoto in the parent folder. Remoto (browser link) is for controlling
-your desktop from anywhere; **Remoto Stream (this) is for playing games** with the lowest latency this design allows.
+This is separate from the browser-based Remotive in the parent folder. Remotive (browser link) is for controlling
+your desktop from anywhere; **Remotive Stream (this) is for playing games** with the lowest latency this design allows.
 
 ```
 desktop (host.py)                              laptop (client.py)
@@ -25,7 +25,7 @@ Python 3.10+. On the **desktop** you also need the parent `host/` deps (capture 
 hardware H.264 encoder (NVIDIA/AMD/Intel — you have an RTX, so NVENC).
 
 ```powershell
-cd Remoto\stream
+cd Remotive\stream
 pip install -r requirements.txt
 ```
 
@@ -33,7 +33,7 @@ pip install -r requirements.txt
 
 **1. Desktop (host):**
 ```powershell
-cd Remoto\stream
+cd Remotive\stream
 python host.py --fps 60 --bitrate 20000
 ```
 It asks for a password (any 8+ chars; the laptop must use the same one) and listens on UDP **47990**.
@@ -42,7 +42,7 @@ Public too if you'll play over the internet).
 
 **2. Laptop (client):** point it at the desktop's IP.
 ```powershell
-cd Remoto\stream
+cd Remotive\stream
 python client.py <DESKTOP-IP> --fps 60 --bitrate 20000
 ```
 - **Same Wi-Fi/LAN:** use the desktop's local IP (`ipconfig` on the desktop → IPv4, e.g. `192.168.1.50`).
@@ -91,6 +91,6 @@ The host auto-lowers the bitrate when the client reports packet loss and raises 
 ## Files
 ```
 protocol.py   packet format, AES-GCM sealing, FEC shard/rebuild, input/control messages
-host.py       desktop: capture + NVENC + UDP send + input injection (reuses ../host/remoto_host.py)
+host.py       desktop: capture + NVENC + UDP send + input injection (reuses ../host/remotive_host.py)
 client.py     laptop: UDP recv + FEC + decode + pygame window + raw input capture
 ```

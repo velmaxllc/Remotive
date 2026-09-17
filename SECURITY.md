@@ -1,6 +1,6 @@
 # Security
 
-Remoto gives a browser full control of a desktop, so the design assumes the network,
+Remotive gives a browser full control of a desktop, so the design assumes the network,
 the relay and even Cloudflare itself may be hostile. This document says what protects you
 and what does not.
 

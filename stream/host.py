@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Remoto Stream host — runs on the desktop you want to play on.
+"""Remotive Stream host — runs on the desktop you want to play on.
 
 Captures the screen (DXGI/GPU), encodes H.264 with the GPU's hardware encoder, splits each frame into
 FEC shards and sends them over UDP to the client. Receives the client's mouse/keyboard over UDP and
@@ -23,7 +23,7 @@ import time
 
 # Reuse the capture / encode / input-injection code that already works in the WebSocket host.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "host"))
-import remoto_host as rh  # noqa: E402
+import remotive_host as rh  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import protocol as P  # noqa: E402
@@ -252,7 +252,7 @@ class StreamHost:
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Remoto Stream host (game streaming, UDP + FEC)")
+    ap = argparse.ArgumentParser(description="Remotive Stream host (game streaming, UDP + FEC)")
     ap.add_argument("--port", type=int, default=47990)
     ap.add_argument("--monitor", type=int, default=1, help="1 = primary (0 = all monitors)")
     ap.add_argument("--width", type=int, default=1280, help="stream width (default 1280)")
@@ -268,11 +268,11 @@ def main():
                         format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
     logging.getLogger("comtypes").setLevel(logging.WARNING)
 
-    password = os.environ.get("REMOTO_PASSWORD") or getpass.getpass("Stream password: ")
+    password = os.environ.get("REMOTIVE_PASSWORD") or getpass.getpass("Stream password: ")
     if len(password) < 8:
         log.error("password must be at least 8 characters")
         sys.exit(2)
-    answer = os.environ.get("REMOTO_ANSWER", "")
+    answer = os.environ.get("REMOTIVE_ANSWER", "")
     key = P.derive_key(password, answer)
     del password
 

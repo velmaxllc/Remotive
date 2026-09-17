@@ -1,4 +1,4 @@
-// Remoto relay Worker: serves the viewer page, authenticates viewers (cookie) and
+// Remotive relay Worker: serves the viewer page, authenticates viewers (cookie) and
 // the host (bearer auth key), and hands authenticated WebSockets to the Relay
 // Durable Object. All screen/input traffic through here is end-to-end encrypted.
 
@@ -170,7 +170,7 @@ async function hostSocket(req: Request, env: Env, url: URL, ctx: ExecutionContex
 function connectRelay(env: Env, role: 'host' | 'viewer'): Promise<Response> {
   // Only this Worker can reach the Durable Object, so the role header is trusted there.
   return relayStub(env).fetch('https://relay.internal/connect', {
-    headers: { Upgrade: 'websocket', 'X-Remoto-Role': role },
+    headers: { Upgrade: 'websocket', 'X-Remotive-Role': role },
   });
 }
 
@@ -194,7 +194,7 @@ function isHttps(url: URL): boolean {
 
 function cookieName(url: URL): string {
   // __Host- prefix binds the cookie to this origin; browsers only accept it over HTTPS.
-  return isHttps(url) ? '__Host-remoto_session' : 'remoto_session';
+  return isHttps(url) ? '__Host-remotive_session' : 'remotive_session';
 }
 
 function sessionCookie(value: string, maxAge: number, url: URL): string {

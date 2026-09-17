@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
-  <title>Remoto — generate relay secrets</title>
+  <title>Remotive — generate relay secrets</title>
   <style>
     :root { --bg:#0b0d10; --card:#12151a; --line:#262b33; --text:#e8ebef; --muted:#8b93a1; --accent:#4f8cff; --ok:#34c77b; --bad:#ff5d5d; }
     * { box-sizing: border-box; }
@@ -30,9 +30,9 @@
 </head>
 <body>
   <main class="card">
-    <h1>Remoto — relay secrets</h1>
+    <h1>Remotive — relay secrets</h1>
     <p>Runs entirely in this browser tab, offline. Nothing is sent anywhere. Choose the password you'll type on the laptop and in the host agent, then copy the values into the Worker's <b>Settings → Variables and Secrets</b> (type: <b>Secret</b>).</p>
-    <label for="pw">Remoto password (10+ characters — this is the only secret in the system, make it long)</label>
+    <label for="pw">Remotive password (10+ characters — this is the only secret in the system, make it long)</label>
     <input id="pw" type="password" autocomplete="new-password" autofocus>
     <label for="pw2">Repeat it</label>
     <input id="pw2" type="password" autocomplete="new-password">
@@ -50,7 +50,7 @@
     </div>
   </main>
   <script>
-    // Must match worker/scripts/setup-secrets.mjs, host/remoto_host.py and the viewer:
+    // Must match worker/scripts/setup-secrets.mjs, host/remotive_host.py and the viewer:
     // secret    = password + "\n" + normalized answer (trim, lowercase, collapse spaces)
     // AUTH_HASH = hex(SHA-256(PBKDF2-SHA256(secret, "remoto:auth:v1", 200000 iterations, 32 bytes)))
     const enc = new TextEncoder();

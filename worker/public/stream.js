@@ -1,4 +1,4 @@
-// Remoto Stream viewer — WebRTC. Logs in and opens the relay WebSocket only to trade the WebRTC
+// Remotive Stream viewer — WebRTC. Logs in and opens the relay WebSocket only to trade the WebRTC
 // handshake (SDP/ICE) with the desktop host, encrypted end-to-end. Once connected, H.264 video and
 // input flow peer-to-peer over WebRTC (UDP) — the relay is out of the media path.
 'use strict';
@@ -8,6 +8,8 @@
   const enc = new TextEncoder();
   const dec = new TextDecoder();
   const PBKDF2_ITERATIONS = 200000;
+  // NOTE: these salt/AAD strings keep their original spelling on purpose — they are protocol
+  // constants baked into every derived key; renaming them would invalidate existing deployments.
   const AAD_H2V = enc.encode('remoto-v1:h2v');
   const AAD_V2H = enc.encode('remoto-v1:v2h');
   const MSG_JSON = 0x02;

@@ -1,4 +1,4 @@
-# Remoto WebRTC (low-latency streaming to the browser)
+# Remotive WebRTC (low-latency streaming to the browser)
 
 Streams your desktop to the **browser** with game-grade latency, using **WebRTC** — the same UDP/hardware-H.264
 transport Parsec/Stadia use for in-browser play. The Cloudflare Worker only carries the tiny connection
@@ -10,10 +10,10 @@ handshake (SDP/ICE, end-to-end encrypted); the video then flows **directly** des
    ```powershell
    cd host
    pip install -r requirements.txt          # includes aiortc
-   python webrtc_host.py --url https://remoto.<you>.workers.dev --fps 60 --bitrate 20000
+   python webrtc_host.py --url https://remotive.<you>.workers.dev --fps 60 --bitrate 20000
    ```
    Enter the same password + security answer as the relay.
-3. On the **laptop**, open **`https://remoto.<you>.workers.dev/stream`**, log in, and click **🎮 Play**
+3. On the **laptop**, open **`https://remotive.<you>.workers.dev/stream`**, log in, and click **🎮 Play**
    (fullscreen + captured mouse for games; press **Esc** to release).
 
 ## How it differs from the other two modes

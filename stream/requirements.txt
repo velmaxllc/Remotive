@@ -1,4 +1,4 @@
-# Remoto Stream — install on BOTH the host (desktop) and the client (laptop).
+# Remotive Stream — install on BOTH the host (desktop) and the client (laptop).
 # The host also uses ../host/requirements.txt (mss, bettercam, pynput, etc.) for capture + injection.
 av>=13                 # PyAV: hardware H.264 encode (host) / decode (client) via ffmpeg
 zfec>=1.5              # Reed-Solomon forward error correction

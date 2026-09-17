@@ -31,7 +31,7 @@ export class Relay extends DurableObject<Env> {
   async fetch(req: Request): Promise<Response> {
     if (req.headers.get('Upgrade') !== 'websocket') return new Response('Expected WebSocket', { status: 426 });
     // The Worker authenticated the caller and tells us the role; nothing else can reach this object.
-    const role = req.headers.get('X-Remoto-Role') as Role | null;
+    const role = req.headers.get('X-Remotive-Role') as Role | null;
     if (role !== 'host' && role !== 'viewer') return new Response('Bad role', { status: 400 });
 
     if (role === 'host') {

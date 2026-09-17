@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Remoto Stream client — runs on the laptop you play from.
+"""Remotive Stream client — runs on the laptop you play from.
 
 Receives FEC video shards over UDP, rebuilds and hardware-decodes each frame, and shows it in a
 low-latency window. Captures your mouse (raw/relative, so games can look around) and keyboard and
@@ -179,7 +179,7 @@ class StreamClient:
 
     def run(self):
         pygame.init()
-        pygame.display.set_caption("Remoto Stream")
+        pygame.display.set_caption("Remotive Stream")
         flags = pygame.FULLSCREEN | pygame.SCALED if self.fullscreen else pygame.RESIZABLE
         screen = pygame.display.set_mode(self.win_size, flags)
         scancodes = build_scancode_map()
@@ -212,8 +212,8 @@ class StreamClient:
             if on:
                 pygame.mouse.set_pos(win_center())  # start centered so the first deltas are sane
 
-        _shot = os.environ.get("REMOTO_TEST_SHOT")
-        _deadline = time.monotonic() + float(os.environ.get("REMOTO_TEST_SECONDS", "0")) if _shot else None
+        _shot = os.environ.get("REMOTIVE_TEST_SHOT")
+        _deadline = time.monotonic() + float(os.environ.get("REMOTIVE_TEST_SECONDS", "0")) if _shot else None
         if not _shot:
             set_grab(True)
 
@@ -318,7 +318,7 @@ class StreamClient:
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Remoto Stream client (game streaming, UDP + FEC)")
+    ap = argparse.ArgumentParser(description="Remotive Stream client (game streaming, UDP + FEC)")
     ap.add_argument("host", help="host IP (LAN address, or Tailscale 100.x.y.z)")
     ap.add_argument("--port", type=int, default=47990)
     ap.add_argument("--fps", type=int, default=60)
@@ -332,8 +332,8 @@ def main():
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO,
                         format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S")
 
-    password = os.environ.get("REMOTO_PASSWORD") or getpass.getpass("Stream password: ")
-    answer = os.environ.get("REMOTO_ANSWER", "")
+    password = os.environ.get("REMOTIVE_PASSWORD") or getpass.getpass("Stream password: ")
+    answer = os.environ.get("REMOTIVE_ANSWER", "")
     key = P.derive_key(password, answer)
     del password
 

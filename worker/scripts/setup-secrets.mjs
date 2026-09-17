@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Derives the relay secrets from your Remoto password and stores them.
+// Derives the relay secrets from your Remotive password and stores them.
 //
 //   npm run setup          -> pushes AUTH_HASH + SESSION_SECRET (+ SMTP_PASS) to Cloudflare (wrangler secret bulk)
 //   npm run setup:local    -> writes them to .dev.vars for `npm run dev`
@@ -104,8 +104,8 @@ function askVisible(question) {
 }
 
 async function main() {
-  console.log(`Remoto relay setup (${local ? 'local .dev.vars' : printOnly ? 'print values' : 'Cloudflare secrets'})\n`);
-  const password = await askHidden('Choose a Remoto password (10+ characters): ');
+  console.log(`Remotive relay setup (${local ? 'local .dev.vars' : printOnly ? 'print values' : 'Cloudflare secrets'})\n`);
+  const password = await askHidden('Choose a Remotive password (10+ characters): ');
   if (password.length < MIN_PASSWORD_LENGTH) throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
   const again = await askHidden('Repeat it: ');
   if (again !== password) throw new Error('Passwords do not match.');
@@ -141,7 +141,7 @@ async function main() {
     return;
   }
 
-  const dir = mkdtempSync(join(tmpdir(), 'remoto-'));
+  const dir = mkdtempSync(join(tmpdir(), 'remotive-'));
   const file = join(dir, 'secrets.json');
   try {
     writeFileSync(file, JSON.stringify(secrets), { mode: 0o600 });
@@ -152,7 +152,7 @@ async function main() {
     rmSync(dir, { recursive: true, force: true });
   }
   console.log('\nDone. Deploy with: npm run deploy');
-  console.log('Then start the host with the same password and answer: python host/remoto_host.py --url https://<your-worker>.workers.dev');
+  console.log('Then start the host with the same password and answer: python host/remotive_host.py --url https://<your-worker>.workers.dev');
 }
 
 main().catch((err) => {

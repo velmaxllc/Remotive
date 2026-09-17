@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Remoto WebRTC host — streams the desktop to the *browser* with game-grade latency.
+"""Remotive WebRTC host — streams the desktop to the *browser* with game-grade latency.
 
-The browser opens the same Remoto link and negotiates a WebRTC connection with this host through the
+The browser opens the same Remotive link and negotiates a WebRTC connection with this host through the
 Cloudflare Worker (which only carries the tiny SDP/ICE handshake). Once connected, H.264 video and input
 flow **directly** between the desktop and the browser over WebRTC (UDP/SRTP) — the relay is out of the
 media path, and WebRTC's own loss recovery + congestion control replace the TCP-relay bottleneck.
 
-    python webrtc_host.py --url https://remoto.<you>.workers.dev
+    python webrtc_host.py --url https://remotive.<you>.workers.dev
 
-Reuses the capture + input-injection code from remoto_host.py. Needs: aiortc, av, bettercam.
+Reuses the capture + input-injection code from remotive_host.py. Needs: aiortc, av, bettercam.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from aiortc import RTCConfiguration, RTCIceServer, RTCPeerConnection, RTCSession
 from aiortc.codecs import get_capabilities
 from av import VideoFrame
 
-import remoto_host as rh
+import remotive_host as rh
 from aiortc.codecs import h264 as _h264
 
 log = logging.getLogger("webrtc-host")
@@ -140,7 +140,7 @@ class WebRTCHost:
         self.loop = None
         self.seen_events: set[int] = set()
 
-    # ---- E2E relay framing (same as remoto_host so the browser can talk to us) --------------
+    # ---- E2E relay framing (same as remotive_host so the browser can talk to us) --------------
     def seal(self, obj: dict) -> bytes:
         obj["ts"] = int(time.time() * 1000)
         plain = bytes([MSG_JSON]) + json.dumps(obj, separators=(",", ":")).encode()
@@ -191,7 +191,7 @@ class WebRTCHost:
                                                max_size=1 << 20, ping_interval=None, open_timeout=15) as ws:
                     self.ws = ws
                     backoff = 1.0
-                    log.info("connected to relay; open the Remoto link in your browser and click 'Low latency'")
+                    log.info("connected to relay; open the Remotive link in your browser and click 'Low latency'")
                     keepalive = asyncio.create_task(self._keepalive(ws))
                     try:
                         async for message in ws:
@@ -215,7 +215,7 @@ class WebRTCHost:
                               "~15 minutes. Wait 15 min, then retry with the correct password + answer.")
                     backoff = max(backoff, 60)
                 elif status == 403:
-                    log.error("Forbidden (403). Make sure --url has no trailing path (just https://remoto.<you>.workers.dev).")
+                    log.error("Forbidden (403). Make sure --url has no trailing path (just https://remotive.<you>.workers.dev).")
                     backoff = max(backoff, 5)
                 elif status == 503:
                     log.error("Relay not configured (503): run `npm run setup` in the worker folder to set the secrets.")
@@ -330,8 +330,8 @@ def _prefer_h264(pc):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Remoto WebRTC host — low-latency browser game streaming")
-    ap.add_argument("--url", required=True, help="your Remoto relay URL, e.g. https://remoto.<you>.workers.dev")
+    ap = argparse.ArgumentParser(description="Remotive WebRTC host — low-latency browser game streaming")
+    ap.add_argument("--url", required=True, help="your Remotive relay URL, e.g. https://remotive.<you>.workers.dev")
     ap.add_argument("--monitor", type=int, default=1)
     ap.add_argument("--width", type=int, default=1280)
     ap.add_argument("--height", type=int, default=720)
@@ -347,9 +347,9 @@ def main():
     logging.getLogger("aioice").setLevel(logging.WARNING)
     logging.getLogger("aiortc").setLevel(logging.WARNING)
 
-    password = os.environ.get("REMOTO_PASSWORD") or getpass.getpass("Remoto password: ")
+    password = os.environ.get("REMOTIVE_PASSWORD") or getpass.getpass("Remotive password: ")
     # Optional second factor: only if the relay was set up with a security question.
-    answer = os.environ.get("REMOTO_ANSWER")
+    answer = os.environ.get("REMOTIVE_ANSWER")
     if answer is None:
         answer = getpass.getpass("Security answer (press Enter if you didn't set a question): ")
     auth_key_hex, enc_key = rh.derive_keys(password, answer)

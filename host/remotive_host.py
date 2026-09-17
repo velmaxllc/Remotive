@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Remoto host agent.
+"""Remotive host agent.
 
 Runs on the desktop you want to control. Captures the screen (only the regions
 that changed), encrypts every message end-to-end with a key derived from your
-password, and pushes it to the Remoto relay on Cloudflare Workers. Input events
+password, and pushes it to the Remotive relay on Cloudflare Workers. Input events
 coming back from the viewer are decrypted, validated and injected with pynput.
 
 Usage:
-    python remoto_host.py --url https://remoto.<you>.workers.dev
-    python remoto_host.py --print-hash          # AUTH_HASH for the relay secrets
+    python remotive_host.py --url https://remotive.<you>.workers.dev
+    python remotive_host.py --print-hash          # AUTH_HASH for the relay secrets
 """
 
 from __future__ import annotations
@@ -188,7 +188,7 @@ else:
     def composite_cursor(frame_bgra, mon: dict) -> None:
         return
 
-log = logging.getLogger("remoto")
+log = logging.getLogger("remotive")
 MSS = getattr(mss, "MSS", None) or mss.mss  # mss 10 renamed the class
 
 try:
@@ -205,6 +205,8 @@ if sys.platform == "win32":
         bettercam = None
 
 PBKDF2_ITERATIONS = 200_000
+# NOTE: these salt/AAD strings keep their original spelling on purpose. They are protocol
+# constants baked into every derived key — renaming them would invalidate existing deployments.
 AAD_H2V = b"remoto-v1:h2v"  # host -> viewer
 AAD_V2H = b"remoto-v1:v2h"  # viewer -> host
 MSG_FRAME = 0x01           # JPEG regions
@@ -1419,8 +1421,8 @@ def load_config(path: str) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Remoto host agent")
-    parser.add_argument("--url", help="Relay URL, e.g. https://remoto.<you>.workers.dev (or REMOTO_URL)")
+    parser = argparse.ArgumentParser(description="Remotive host agent")
+    parser.add_argument("--url", help="Relay URL, e.g. https://remotive.<you>.workers.dev (or REMOTIVE_URL)")
     parser.add_argument("--config", default=os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json"),
                         help="JSON file with url/password/answer/monitor/quality/fps (default: config.json next to this script)")
     parser.add_argument("--monitor", type=int, help="Monitor index: 1 = primary, 0 = all monitors")
@@ -1436,12 +1438,12 @@ def main():
     logging.getLogger("comtypes").setLevel(logging.WARNING)
 
     cfg = load_config(args.config)
-    password = os.environ.get("REMOTO_PASSWORD") or cfg.get("password") or getpass.getpass("Remoto password: ")
+    password = os.environ.get("REMOTIVE_PASSWORD") or cfg.get("password") or getpass.getpass("Remotive password: ")
     if len(password) < 10:
         log.error("password must be at least 10 characters")
         sys.exit(2)
     # Optional second factor: only if the relay was set up with a security question. Blank = password only.
-    answer = os.environ.get("REMOTO_ANSWER")
+    answer = os.environ.get("REMOTIVE_ANSWER")
     if answer is None:
         answer = cfg.get("answer")
     if answer is None:
@@ -1453,9 +1455,9 @@ def main():
         print(auth_hash(auth_key_hex))
         return
 
-    url = args.url or os.environ.get("REMOTO_URL") or cfg.get("url")
+    url = args.url or os.environ.get("REMOTIVE_URL") or cfg.get("url")
     if not url:
-        parser.error("--url is required (or set REMOTO_URL / config.json)")
+        parser.error("--url is required (or set REMOTIVE_URL / config.json)")
     if not url.startswith(("https://", "http://localhost", "http://127.0.0.1")):
         parser.error("--url must be https:// (http is only allowed for localhost testing)")
 

@@ -55,9 +55,9 @@ function stamp(): string {
 
 export function loginAlert(facts: RequestFacts): { subject: string; lines: string[] } {
   return {
-    subject: 'Remoto: someone just logged in to your desktop',
+    subject: 'Remotive: someone just logged in to your desktop',
     lines: [
-      'A viewer logged in to Remoto with the correct password and security answer.',
+      'A viewer logged in to Remotive with the correct password and security answer.',
       '',
       `Time:      ${stamp()}`,
       `IP:        ${facts.ip}`,
@@ -72,7 +72,7 @@ export function loginAlert(facts: RequestFacts): { subject: string; lines: strin
 
 export function lockoutAlert(facts: RequestFacts): { subject: string; lines: string[] } {
   return {
-    subject: 'Remoto: repeated failed logins (IP locked out)',
+    subject: 'Remotive: repeated failed logins (IP locked out)',
     lines: [
       'An IP address hit the failed-login limit and is blocked for 15 minutes.',
       '',

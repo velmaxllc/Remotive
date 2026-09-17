@@ -1,4 +1,4 @@
-"""Remoto Stream — shared wire protocol for the low-latency game streamer.
+"""Remotive Stream — shared wire protocol for the low-latency game streamer.
 
 Same idea as NVIDIA GameStream / Sunshine+Moonlight, but our own code:
 
@@ -25,7 +25,7 @@ import zfec
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-# ---- key derivation (matches the Remoto scheme so a password behaves the same) ----------
+# ---- key derivation (matches the Remotive scheme so a password behaves the same) ----------
 PBKDF2_ITERATIONS = 200_000
 
 
@@ -37,6 +37,8 @@ def derive_key(password: str, answer: str = "") -> bytes:
 # ---- packet framing ---------------------------------------------------------------------
 # Wire packet = [12-byte nonce][ GCM ciphertext of (1-byte type + body) ][16-byte tag].
 # Direction is bound into the GCM associated data so a packet can't be reflected back.
+# NOTE: these salt/AAD strings keep their original spelling on purpose. They are protocol
+# constants baked into every derived key — renaming them would invalidate existing deployments.
 AAD_H2C = b"remoto-stream:h2c"   # host -> client
 AAD_C2H = b"remoto-stream:c2h"   # client -> host
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Builds dist/remoto-worker.js: the whole relay (viewer page inlined) as ONE
+// Builds dist/remotive-worker.js: the whole relay (viewer page inlined) as ONE
 // ES-module file that can be pasted into the Cloudflare dashboard code editor.
 //
 //   npm run bundle
@@ -11,7 +11,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const workerDir = join(dirname(fileURLToPath(import.meta.url)), '..');
-const outfile = join(workerDir, 'dist', 'remoto-worker.js');
+const outfile = join(workerDir, 'dist', 'remotive-worker.js');
 
 execFileSync(process.execPath, [join(workerDir, 'scripts', 'inline-assets.mjs')], { stdio: 'inherit' });
 mkdirSync(join(workerDir, 'dist'), { recursive: true });
@@ -27,7 +27,7 @@ await build({
   legalComments: 'none',
   banner: {
     js: [
-      '// Remoto relay — single-file build for the Cloudflare dashboard editor.',
+      '// Remotive relay — single-file build for the Cloudflare dashboard editor.',
       '// Paste this whole file as the Worker code, then in Settings add:',
       '//   Bindings  -> Durable Object: variable RELAY, class Relay (this Worker)',
       '//   Secrets   -> AUTH_HASH and SESSION_SECRET (generate with tools/setup.html), SMTP_PASS (app password)',

@@ -1,4 +1,4 @@
-# Remoto
+# Remotive
 
 Self-hosted remote desktop and game streaming that runs on **your own Cloudflare account**. Open a link in
 any browser to control your PC, or stream it at 60 fps with game-grade latency. End-to-end encrypted — the
@@ -30,8 +30,8 @@ laptop browser  ──▶  your Cloudflare Worker  ◀──  your desktop (Pyth
 
 ### 1. Get the code
 ```bash
-git clone https://github.com/<you>/remoto.git
-cd remoto
+git clone https://github.com/<you>/remotive.git
+cd remotive
 ```
 
 ### 2. Deploy your relay
@@ -41,7 +41,7 @@ Needs [Node.js](https://nodejs.org) 20+ and a free [Cloudflare](https://dash.clo
 cd worker
 npm install
 npx wrangler login      # opens your browser once
-npx wrangler deploy     # prints your link: https://remoto.<you>.workers.dev
+npx wrangler deploy     # prints your link: https://remotive.<you>.workers.dev
 npm run setup           # choose your password (+ optional security question)
 ```
 
@@ -63,13 +63,13 @@ Needs Python 3.10+ on that machine (Windows is the primary target; macOS/Linux w
 ```bash
 cd host
 pip install -r requirements.txt
-python remoto_host.py --url https://remoto.<you>.workers.dev
+python remotive_host.py --url https://remotive.<you>.workers.dev
 ```
 
 Enter the same password (and answer, if you set a question). Leave it running.
 
 ### 4. Connect
-Open **`https://remoto.<you>.workers.dev`** on any device, log in, and you're controlling your desktop.
+Open **`https://remotive.<you>.workers.dev`** on any device, log in, and you're controlling your desktop.
 
 ---
 
@@ -79,10 +79,10 @@ For low-latency gaming, run the WebRTC host instead and open `/stream`:
 
 ```bash
 cd host
-python webrtc_host.py --url https://remoto.<you>.workers.dev --fps 60 --bitrate 20000
+python webrtc_host.py --url https://remotive.<you>.workers.dev --fps 60 --bitrate 20000
 ```
 
-Then open **`https://remoto.<you>.workers.dev/stream`**, log in, and click **🎮 Play** (captures your
+Then open **`https://remotive.<you>.workers.dev/stream`**, log in, and click **🎮 Play** (captures your
 mouse for aiming; **Esc** releases it). Details: [host/README-webrtc.md](host/README-webrtc.md).
 
 For the absolute lowest latency, use the native client instead — see [stream/README.md](stream/README.md).
@@ -111,7 +111,7 @@ To turn them on, add your mail details to `worker/wrangler.jsonc`:
 ```jsonc
 "vars": {
   "ALERT_TO": "you@example.com",
-  "ALERT_FROM": "Remoto <you@example.com>",
+  "ALERT_FROM": "Remotive <you@example.com>",
   "SMTP_HOST": "smtp.gmail.com", "SMTP_PORT": "465", "SMTP_SECURE": "tls",
   "SMTP_USER": "you@example.com"
 }
@@ -152,7 +152,7 @@ worker/     Cloudflare Worker: relay, auth, and the browser pages
   public/     the viewer (/) and the WebRTC stream page (/stream)
   scripts/    setup-secrets.mjs, build helpers
 host/       Python host agents
-  remoto_host.py    desktop control (tiles over the relay)
+  remotive_host.py    desktop control (tiles over the relay)
   webrtc_host.py    low-latency browser streaming (WebRTC)
 stream/     native UDP + FEC streamer (host.py + client.py)
 tools/      setup.html — offline generator for the secrets, if you prefer the dashboard

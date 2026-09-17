@@ -1,4 +1,4 @@
-// Remoto viewer. Derives the session keys from the password in the browser,
+// Remotive viewer. Derives the session keys from the password in the browser,
 // logs in to the relay with the auth key, then exchanges AES-GCM encrypted
 // frames/input with the host over a WebSocket. The encryption key never leaves
 // this page and is never persisted.
@@ -10,6 +10,8 @@
   const dec = new TextDecoder();
 
   const PBKDF2_ITERATIONS = 200000;
+  // NOTE: these salt/AAD strings keep their original spelling on purpose — they are protocol
+  // constants baked into every derived key; renaming them would invalidate existing deployments.
   const AAD_H2V = enc.encode('remoto-v1:h2v'); // host -> viewer
   const AAD_V2H = enc.encode('remoto-v1:v2h'); // viewer -> host
   const MSG_FRAME = 0x01; // JPEG regions

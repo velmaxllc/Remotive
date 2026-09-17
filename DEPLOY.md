@@ -1,6 +1,6 @@
-# Deploying Remoto — pick one route
+# Deploying Remotive — pick one route
 
-Remoto's link is a **Worker with code** (login API, WebSocket relay, a Durable Object, two secrets).
+Remotive's link is a **Worker with code** (login API, WebSocket relay, a Durable Object, two secrets).
 The dashboard's *"Upload static files"* / drag-a-zip flow only accepts static HTML/CSS/JS, so it can't run
 the relay — you'd get the login page with nothing behind it. Use one of these instead.
 
@@ -21,14 +21,14 @@ Whichever route you take, the host side is the same: [README.md → "Run the hos
    (`AUTH_HASH`, `SESSION_SECRET`, and `SECURITY_QUESTION` if you set one).
 
 2. **Create the Worker.** Cloudflare dashboard → *Workers & Pages* → *Create* → *Start with Hello World!*
-   → name it `remoto` → *Deploy*.
+   → name it `remotive` → *Deploy*.
 
 3. **Paste the code.** On the new Worker click *Edit code*, select everything in the editor, delete it,
-   and paste the entire contents of `dashboard/remoto-worker.js`. Click *Deploy*.
+   and paste the entire contents of `dashboard/remotive-worker.js`. Click *Deploy*.
 
 4. **Add the Durable Object.** Worker → *Settings* → *Bindings* → *Add* → *Durable Object*:
    - Variable name: `RELAY`
-   - Durable Object class: `Relay` — from *this* Worker (`remoto`)
+   - Durable Object class: `Relay` — from *this* Worker (`remotive`)
    - If it asks for a storage backend, choose **SQLite** (required on the free plan).
    Save / Deploy.
 
@@ -39,7 +39,7 @@ Whichever route you take, the host side is the same: [README.md → "Run the hos
    Email alerts are **off by default** — skip them unless you want them (see the README).
    Save / Deploy.
 
-6. Open `https://remoto.<your-subdomain>.workers.dev`. You should see the Remoto login page.
+6. Open `https://remotive.<your-subdomain>.workers.dev`. You should see the Remotive login page.
    Start the host agent on the desktop with the same password, then log in from the laptop.
 
 > If the page says *"Relay is not configured yet"*, step 5 didn't apply — check the two secret names exactly.
@@ -64,11 +64,11 @@ To change the password later: run `tools/setup.html` again, replace **both** sec
 cd worker
 npm install
 npx wrangler login          # opens the browser once
-npx wrangler deploy         # prints https://remoto.<you>.workers.dev
+npx wrangler deploy         # prints https://remotive.<you>.workers.dev
 npm run setup               # password (+ optional security question) -> uploads the secrets
 ```
 
-Rebuild `dashboard/remoto-worker.js` after editing the source with `npm run bundle`.
+Rebuild `dashboard/remotive-worker.js` after editing the source with `npm run bundle`.
 
 ---
 
@@ -77,7 +77,7 @@ Rebuild `dashboard/remoto-worker.js` after editing the source with `npm run bund
 ```powershell
 cd host
 pip install -r requirements.txt
-python remoto_host.py --url https://remoto.<you>.workers.dev
+python remotive_host.py --url https://remotive.<you>.workers.dev
 ```
 
 Type the same password (and answer, if you set a question), leave it running, open the link on the laptop. Full details, autostart and
