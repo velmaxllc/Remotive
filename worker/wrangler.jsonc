@@ -28,6 +28,8 @@
   //   SESSION_SECRET   random string that signs viewer session cookies                              [required]
   //   SECURITY_QUESTION  a second-factor question shown on the login page; blank = password only    [optional]
   //   SMTP_PASS        password/app-password for the alert email account                            [optional]
+  //   TURN_KEY_ID       Cloudflare Realtime TURN token id  — needed to stream from other networks     [optional]
+  //   TURN_KEY_API_TOKEN  its API token; see "Streaming away from home" in the README                 [optional]
   //
   // Email alerts are OFF by default. To turn them on, set ALERT_TO plus your SMTP details, e.g.:
   //   "vars": {

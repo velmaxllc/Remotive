@@ -6,6 +6,7 @@ import { Relay } from './relay';
 import { isHex64, readCookie, signSession, verifyAuthKey, verifySession } from './auth';
 import { INLINE_ASSETS } from './assets.generated';
 import { lockoutAlert, loginAlert, requestFacts, sendAlert } from './alerts';
+import { iceServers } from './ice';
 
 export { Relay };
 
@@ -23,6 +24,10 @@ export interface Env {
   SMTP_PASS?: string;
   ALERT_TO?: string;
   ALERT_FROM?: string;
+  // Cloudflare Realtime TURN (see ice.ts). Without these, /stream is STUN-only and only
+  // reliably connects on a LAN. Set both to stream from other networks.
+  TURN_KEY_ID?: string;
+  TURN_KEY_API_TOKEN?: string;
 }
 
 const SESSION_TTL_SECONDS = 8 * 60 * 60;
@@ -65,6 +70,8 @@ async function route(req: Request, env: Env, url: URL, ctx: ExecutionContext): P
         return req.method === 'POST' ? logout(req, url) : text('Method not allowed', 405);
       case '/api/session':
         return req.method === 'GET' ? sessionCheck(req, env, url) : text('Method not allowed', 405);
+      case '/api/ice':
+        return req.method === 'GET' ? iceEndpoint(req, env, url) : text('Method not allowed', 405);
       case '/ws/viewer':
         return viewerSocket(req, env, url);
       case '/ws/host':
@@ -143,6 +150,31 @@ async function viewerSocket(req: Request, env: Env, url: URL): Promise<Response>
   const claims = await verifySession(env.SESSION_SECRET!, readCookie(req, cookieName(url)));
   if (!claims) return text('Unauthorized', 401);
   return connectRelay(env, 'viewer');
+}
+
+/**
+ * ICE servers for the WebRTC stream. Both ends need them, so this accepts either a viewer
+ * session cookie or the host's bearer auth key. Returns no secrets of its own — just
+ * short-lived TURN credentials (or public STUN when TURN is not configured).
+ */
+async function iceEndpoint(req: Request, env: Env, url: URL): Promise<Response> {
+  const auth = req.headers.get('Authorization') ?? '';
+  const bearer = auth.startsWith('Bearer ') ? auth.slice(7).trim().toLowerCase() : '';
+
+  if (isHex64(bearer)) {
+    // Host path: rate-limited like every other place the auth key is accepted.
+    const relay = relayStub(env);
+    const ip = clientIp(req);
+    if (!(await relay.loginAllowed(ip))) return json({ error: 'Too many attempts' }, 429);
+    if (!(await verifyAuthKey(bearer, env.AUTH_HASH!))) {
+      await relay.loginFailed(ip);
+      return json({ error: 'Unauthorized' }, 401);
+    }
+  } else if (!(await verifySession(env.SESSION_SECRET!, readCookie(req, cookieName(url))))) {
+    return json({ error: 'Unauthorized' }, 401);
+  }
+
+  return json(await iceServers(env));
 }
 
 async function hostSocket(req: Request, env: Env, url: URL, ctx: ExecutionContext): Promise<Response> {

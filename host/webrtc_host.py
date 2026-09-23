@@ -22,6 +22,8 @@ import os
 import sys
 import threading
 import time
+import urllib.error
+import urllib.request
 
 import numpy as np
 import websockets
@@ -47,7 +49,37 @@ AAD_V2H = rh.AAD_V2H
 MSG_JSON = rh.MSG_JSON
 
 # Public STUN so the two ends can discover their public address and connect directly across NATs.
-DEFAULT_ICE = [RTCIceServer(urls=["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"])]
+# STUN alone is enough on a LAN, but many networks (hotspots, hotel/office Wi-Fi, ISP CGNAT) block the
+# direct path entirely — then a TURN relay is the only way through. The relay hands us those servers
+# from /api/ice; see worker/src/ice.ts.
+DEFAULT_ICE = [RTCIceServer(urls=["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"])]
+
+
+def fetch_ice_servers(base_url: str, auth_key_hex: str) -> list[RTCIceServer]:
+    """Ask the relay for ICE servers. Falls back to public STUN if it cannot say."""
+    endpoint = base_url.rstrip("/") + "/api/ice"
+    try:
+        req = urllib.request.Request(endpoint, headers={"Authorization": f"Bearer {auth_key_hex}"})
+        with urllib.request.urlopen(req, timeout=10) as res:
+            body = json.load(res)
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        log.warning("could not fetch ICE servers (%s); using public STUN only", exc)
+        return DEFAULT_ICE
+
+    servers = []
+    for entry in body.get("iceServers") or []:
+        urls = entry.get("urls") if isinstance(entry, dict) else None
+        if not urls:
+            continue
+        servers.append(RTCIceServer(urls=urls, username=entry.get("username"), credential=entry.get("credential")))
+    if not servers:
+        return DEFAULT_ICE
+    if body.get("turn"):
+        log.info("using a TURN relay — streaming should work from other networks too")
+    else:
+        log.info("STUN only: streaming will work on this LAN, but may not from other networks "
+                 "(see 'Streaming away from home' in the README)")
+    return servers
 
 
 class ScreenTrack(VideoStreamTrack):
@@ -129,8 +161,10 @@ class ScreenTrack(VideoStreamTrack):
 
 class WebRTCHost:
     def __init__(self, url, auth_key_hex, enc_key, monitor, width, height, fps, dry_run):
-        self.ws_url = url.rstrip("/").replace("https://", "wss://", 1).replace("http://", "ws://", 1) + "/ws/host"
+        self.base_url = url.rstrip("/")
+        self.ws_url = self.base_url.replace("https://", "wss://", 1).replace("http://", "ws://", 1) + "/ws/host"
         self.auth_key_hex = auth_key_hex
+        self.ice_servers: list[RTCIceServer] | None = None
         self.aead = rh.AESGCM(enc_key)
         self.monitor, self.width, self.height, self.fps = monitor, width, height, fps
         self.injector = rh.InputInjector(dry_run=dry_run)
@@ -253,7 +287,9 @@ class WebRTCHost:
             return
         await self._teardown()
         log.info("browser requested a low-latency (WebRTC) stream; negotiating")
-        pc = RTCPeerConnection(RTCConfiguration(iceServers=DEFAULT_ICE))
+        if self.ice_servers is None:      # fetched once, then reused for later streams
+            self.ice_servers = await asyncio.to_thread(fetch_ice_servers, self.base_url, self.auth_key_hex)
+        pc = RTCPeerConnection(RTCConfiguration(iceServers=self.ice_servers))
         self.pc = pc
         self.track = ScreenTrack(self.monitor, self.width, self.height, self.fps)
 

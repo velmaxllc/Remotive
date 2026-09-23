@@ -103,6 +103,29 @@ npx wrangler secret put SECURITY_QUESTION    # then paste your question
 The login page shows it automatically. Leave it unset for password-only login. Changing the *wording* is
 safe; changing the *answer* means re-running `npm run setup`.
 
+### Streaming away from home (TURN)
+Game streaming connects your desktop and browser **directly**, peer to peer. On your own network that
+always works. On other networks — mobile hotspots, hotel/office/campus Wi-Fi, or an ISP that uses
+[CGNAT](https://en.wikipedia.org/wiki/Carrier-grade_NAT) — the direct path is often blocked, and `/stream`
+stops at *"Could not reach the desktop"*. Desktop control (`/`) is unaffected: it goes through the relay.
+
+The fix is a **TURN** server, which forwards the video when no direct path exists. Cloudflare has one,
+and 1,000 GB/month is [included free](https://developers.cloudflare.com/realtime/pricing/) ($0.05/GB after
+that). At the default `--bitrate 20000` that is about 9 GB per hour, so roughly **110 hours of streaming a
+month** before you pay anything — and TURN is only used when a direct connection is impossible:
+
+1. Cloudflare dashboard → **Realtime** → **TURN** → *Create* → copy the **Turn Token ID** and **API Token**.
+2. Add them to your Worker:
+   ```bash
+   cd worker
+   npx wrangler secret put TURN_KEY_ID          # paste the Turn Token ID
+   npx wrangler secret put TURN_KEY_API_TOKEN   # paste the API token
+   ```
+3. Restart the host. It logs `using a TURN relay` when it picks them up.
+
+Both ends fetch these automatically from the relay, so there is nothing to configure on the client.
+Without them everything still works — just only on your own network.
+
 ### Email alerts (optional)
 **Off by default** — most people don't need them and don't have an SMTP server. When enabled, you get an
 email on every successful login and whenever an IP is locked out after repeated failures.
@@ -163,10 +186,13 @@ tools/      setup.html — offline generator for the secrets, if you prefer the 
   Workers Paid plan removes that ceiling.)
 - **Host PC:** Python 3.10+. A GPU with a hardware H.264 encoder (NVIDIA/AMD/Intel) makes streaming much better.
 - **Client:** any modern browser. The native client needs Python.
+- **Streaming from other networks:** a TURN server — see [Streaming away from home](#streaming-away-from-home-turn).
 
 ## Known limits
 - Windows lock screen and UAC prompts can't be captured — the OS blocks it for any user-mode program.
 - No audio or file transfer yet.
+- Game streaming needs a direct peer-to-peer path, or a [TURN server](#streaming-away-from-home-turn) on
+  networks that block one.
 - One viewer at a time (by design).
 
 ## License

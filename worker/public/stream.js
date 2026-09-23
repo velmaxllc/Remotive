@@ -13,6 +13,9 @@
   const AAD_H2V = enc.encode('remoto-v1:h2v');
   const AAD_V2H = enc.encode('remoto-v1:v2h');
   const MSG_JSON = 0x02;
+  // How long to wait for a peer connection before telling the user it will not happen.
+  // ICE can legitimately take a few seconds; browsers give up on their own much later, if at all.
+  const NEGOTIATE_TIMEOUT_MS = 20000;
 
   const ui = {
     login: $('#login'), form: $('#login-form'), password: $('#password'), answer: $('#answer'), answerLabel: $('#answer-label'),
@@ -27,6 +30,7 @@
     ws: null, encKey: null, authKeyHex: null,
     pc: null, dc: null, playing: false, leaving: false,
     held: new Set(), moveDx: 0, moveDy: 0, moveRaf: 0, statsTimer: 0, hostOnline: false,
+    negotiateTimer: null, everConnected: false,
   };
 
   // ---- crypto / login ----------------------------------------------------
@@ -127,21 +131,46 @@
   }
 
   // ---- WebRTC ------------------------------------------------------------
+  // Ask the relay which ICE servers to use. It returns TURN credentials when TURN_KEY_ID /
+  // TURN_KEY_API_TOKEN are set on the Worker, and public STUN otherwise.
+  async function fetchIce() {
+    try {
+      const res = await fetch('/api/ice', { credentials: 'same-origin' });
+      if (res.ok) {
+        const b = await res.json();
+        if (Array.isArray(b.iceServers) && b.iceServers.length) return { iceServers: b.iceServers, turn: !!b.turn };
+      }
+    } catch {}
+    return { iceServers: [{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }], turn: false };
+  }
+
   async function startWebRTC() {
     teardownPeer();
     setStatus('Negotiating…', 'warn');
-    const pc = new RTCPeerConnection({ iceServers: [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }] });
+    const ice = await fetchIce();
+    if (state.pc) return;   // a teardown/restart raced us while we were fetching
+    const pc = new RTCPeerConnection({ iceServers: ice.iceServers });
     state.pc = pc;
+
+    // Without this the page sits on "Negotiating…" forever when no route exists.
+    state.negotiateTimer = setTimeout(() => {
+      if (state.pc !== pc || pc.connectionState === 'connected') return;
+      noRoute(ice.turn);
+    }, NEGOTIATE_TIMEOUT_MS);
     pc.addTransceiver('video', { direction: 'recvonly' });
     const dc = pc.createDataChannel('input', { ordered: false, maxRetransmits: 0 });
     state.dc = dc;
-    dc.onopen = () => setStatus('Connected', 'ok');
+    dc.onopen = () => { clearNegotiateTimer(); setStatus('Connected', 'ok'); };
 
     pc.ontrack = (ev) => { ui.video.srcObject = ev.streams[0]; ui.video.play().catch(() => {}); hideOverlay(); };
     pc.onicecandidate = (ev) => { if (ev.candidate && state.ws) send({ t: 'rtc-ice', candidate: ev.candidate.toJSON() }); };
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'connected') { setStatus('Connected', 'ok'); hideOverlay(); }
-      else if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) { setStatus('Peer lost', 'bad'); }
+      if (pc.connectionState === 'connected') { clearNegotiateTimer(); state.everConnected = true; setStatus('Connected', 'ok'); hideOverlay(); }
+      else if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) {
+        // "failed" before we ever connected is a NAT/routing problem, not a dropped stream.
+        if (!state.everConnected && pc.connectionState === 'failed') noRoute(ice.turn);
+        else setStatus('Peer lost', 'bad');
+      }
     };
 
     const offer = await pc.createOffer();
@@ -149,7 +178,27 @@
     send({ t: 'rtc-offer', sdp: pc.localDescription.sdp });
   }
 
+  function clearNegotiateTimer() {
+    if (state.negotiateTimer) { clearTimeout(state.negotiateTimer); state.negotiateTimer = null; }
+  }
+
+  /** No working network path to the desktop — explain which one, instead of hanging. */
+  function noRoute(hadTurn) {
+    clearNegotiateTimer();
+    setStatus('No route to desktop', 'bad');
+    showOverlay(
+      'Could not reach the desktop',
+      hadTurn
+        ? 'This network blocked every route, including the TURN relay. A different network (or a phone hotspot) usually works.'
+        : 'This network blocks the direct peer-to-peer connection that streaming needs. Set up a TURN relay — see "Streaming away from home" in the README — or use desktop control, which always works.',
+      'Try again',
+      () => startWebRTC(),
+    );
+  }
+
   function teardownPeer() {
+    clearNegotiateTimer();
+    state.everConnected = false;
     if (state.dc) { try { state.dc.close(); } catch {} state.dc = null; }
     if (state.pc) { try { state.pc.close(); } catch {} state.pc = null; }
     ui.video.srcObject = null;
