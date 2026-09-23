@@ -147,6 +147,37 @@ def working_stun_servers() -> list[RTCIceServer]:
     return [RTCIceServer(urls=[f"stun:{host}:{port}"])]
 
 
+
+def fetch_ice_servers(base_url: str, auth_key_hex: str) -> list[RTCIceServer]:
+    """Decide which ICE servers to use.
+
+    Asks the relay first: it only has something extra to offer if TURN is configured there. Otherwise
+    (the normal case) we probe STUN ourselves, because aiortc uses just one server and a dead one
+    leaves us with no public candidate at all.
+    """
+    endpoint = base_url.rstrip("/") + "/api/ice"
+    body = {}
+    try:
+        req = urllib.request.Request(endpoint, headers={"Authorization": f"Bearer {auth_key_hex}"})
+        with urllib.request.urlopen(req, timeout=10) as res:
+            body = json.load(res)
+    except (urllib.error.URLError, OSError, ValueError) as exc:
+        log.debug("relay did not supply ICE servers (%s); probing STUN locally", exc)
+
+    if body.get("turn"):
+        servers = []
+        for entry in body.get("iceServers") or []:
+            urls = entry.get("urls") if isinstance(entry, dict) else None
+            if urls:
+                servers.append(RTCIceServer(urls=urls, username=entry.get("username"),
+                                            credential=entry.get("credential")))
+        if servers:
+            log.info("relay supplied a TURN server — it will be used only if no direct path exists")
+            return servers
+
+    return working_stun_servers()
+
+
 class ScreenTrack(VideoStreamTrack):
     """A WebRTC video track fed by a dedicated screen-capture thread (DXGI/GPU). aiortc encodes it to
     H.264 and its congestion control drives the bitrate automatically."""
