@@ -5,13 +5,16 @@
 // Away from home it often fails: mobile hotspots, hotel/office/campus Wi-Fi and ISP CGNAT all use
 // NATs that hole punching cannot cross, and the stream then hangs at "Negotiating…" forever.
 //
-// A TURN server fixes that by relaying the media when no direct path exists. Set TURN_KEY_ID and
-// TURN_KEY_API_TOKEN (Cloudflare Realtime TURN) to switch it on. Without them this returns STUN
-// only, exactly as before — so an unconfigured deploy still works on a LAN.
+// Most home routers are fine: if yours hands out a stable public address (a "cone" NAT, which the
+// host checks and logs at startup), STUN alone connects from anywhere. TURN is only needed when a
+// network blocks peer-to-peer UDP outright. It is entirely optional and off unless TURN_KEY_ID and
+// TURN_KEY_API_TOKEN are set — leave them unset and this returns plain STUN, which costs nothing.
 
 import type { Env } from './index';
 
-const STUN_ONLY = [{ urls: ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'] }];
+// Order matters: some WebRTC stacks (aiortc, which the host uses) take only the *first* STUN server,
+// so the most dependable one goes first. The host additionally probes these before use.
+const STUN_ONLY = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] }];
 const TTL_SECONDS = 12 * 60 * 60;
 
 export interface IceConfig {

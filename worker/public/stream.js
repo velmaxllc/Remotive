@@ -15,7 +15,10 @@
   const MSG_JSON = 0x02;
   // How long to wait for a peer connection before telling the user it will not happen.
   // ICE can legitimately take a few seconds; browsers give up on their own much later, if at all.
-  const NEGOTIATE_TIMEOUT_MS = 20000;
+  const NEGOTIATE_TIMEOUT_MS = 15000;
+  // ICE can fail for transient reasons (a candidate lost in transit, the host still starting its
+  // capture). Re-offering from scratch usually succeeds, so try a few times before giving up.
+  const NEGOTIATE_ATTEMPTS = 3;
 
   const ui = {
     login: $('#login'), form: $('#login-form'), password: $('#password'), answer: $('#answer'), answerLabel: $('#answer-label'),
@@ -30,7 +33,7 @@
     ws: null, encKey: null, authKeyHex: null,
     pc: null, dc: null, playing: false, leaving: false,
     held: new Set(), moveDx: 0, moveDy: 0, moveRaf: 0, statsTimer: 0, hostOnline: false,
-    negotiateTimer: null, everConnected: false,
+    negotiateTimer: null, everConnected: false, pendingIce: [], attempt: 0,
   };
 
   // ---- crypto / login ----------------------------------------------------
@@ -126,8 +129,18 @@
   async function onSealed(buf) {
     const msg = await open(buf);
     if (!msg) return;
-    if (msg.t === 'rtc-answer') { if (state.pc) await state.pc.setRemoteDescription({ type: 'answer', sdp: msg.sdp }); }
-    else if (msg.t === 'rtc-ice') { if (state.pc && msg.candidate) { try { await state.pc.addIceCandidate(msg.candidate); } catch (e) { /* ignore */ } } }
+    if (msg.t === 'rtc-answer') {
+      if (!state.pc) return;
+      await state.pc.setRemoteDescription({ type: 'answer', sdp: msg.sdp });
+      // Candidates that arrived before the answer could not be added yet; they can be now.
+      for (const c of state.pendingIce.splice(0)) { try { await state.pc.addIceCandidate(c); } catch {} }
+    } else if (msg.t === 'rtc-ice' && msg.candidate) {
+      if (!state.pc) return;
+      // addIceCandidate throws before a remote description exists, and a dropped candidate can be
+      // the only route the other side had. Hold it instead of losing it.
+      if (!state.pc.remoteDescription) { state.pendingIce.push(msg.candidate); return; }
+      try { await state.pc.addIceCandidate(msg.candidate); } catch {}
+    }
   }
 
   // ---- WebRTC ------------------------------------------------------------
@@ -149,13 +162,14 @@
     setStatus('Negotiating…', 'warn');
     const ice = await fetchIce();
     if (state.pc) return;   // a teardown/restart raced us while we were fetching
+    state.attempt += 1;
     const pc = new RTCPeerConnection({ iceServers: ice.iceServers });
     state.pc = pc;
 
     // Without this the page sits on "Negotiating…" forever when no route exists.
     state.negotiateTimer = setTimeout(() => {
       if (state.pc !== pc || pc.connectionState === 'connected') return;
-      noRoute(ice.turn);
+      retryOrGiveUp();
     }, NEGOTIATE_TIMEOUT_MS);
     pc.addTransceiver('video', { direction: 'recvonly' });
     const dc = pc.createDataChannel('input', { ordered: false, maxRetransmits: 0 });
@@ -165,10 +179,10 @@
     pc.ontrack = (ev) => { ui.video.srcObject = ev.streams[0]; ui.video.play().catch(() => {}); hideOverlay(); };
     pc.onicecandidate = (ev) => { if (ev.candidate && state.ws) send({ t: 'rtc-ice', candidate: ev.candidate.toJSON() }); };
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'connected') { clearNegotiateTimer(); state.everConnected = true; setStatus('Connected', 'ok'); hideOverlay(); }
+      if (pc.connectionState === 'connected') { clearNegotiateTimer(); state.everConnected = true; state.attempt = 0; setStatus('Connected', 'ok'); hideOverlay(); }
       else if (['failed', 'disconnected', 'closed'].includes(pc.connectionState)) {
         // "failed" before we ever connected is a NAT/routing problem, not a dropped stream.
-        if (!state.everConnected && pc.connectionState === 'failed') noRoute(ice.turn);
+        if (!state.everConnected && pc.connectionState === 'failed') retryOrGiveUp();
         else setStatus('Peer lost', 'bad');
       }
     };
@@ -182,23 +196,32 @@
     if (state.negotiateTimer) { clearTimeout(state.negotiateTimer); state.negotiateTimer = null; }
   }
 
-  /** No working network path to the desktop — explain which one, instead of hanging. */
-  function noRoute(hadTurn) {
+  /** A negotiation attempt failed: try again from scratch, or explain once we are out of tries. */
+  function retryOrGiveUp() {
     clearNegotiateTimer();
+    if (state.pc) { try { state.pc.close(); } catch {} state.pc = null; }
+    state.pendingIce = [];
+    if (state.attempt < NEGOTIATE_ATTEMPTS && state.hostOnline && !state.leaving) {
+      setStatus(`Retrying (${state.attempt}/${NEGOTIATE_ATTEMPTS})…`, 'warn');
+      setTimeout(() => { if (state.hostOnline && !state.pc && !state.leaving) startWebRTC(); }, 1000);
+      return;
+    }
+    state.attempt = 0;
     setStatus('No route to desktop', 'bad');
     showOverlay(
       'Could not reach the desktop',
-      hadTurn
-        ? 'This network blocked every route, including the TURN relay. A different network (or a phone hotspot) usually works.'
-        : 'This network blocks the direct peer-to-peer connection that streaming needs. Set up a TURN relay — see "Streaming away from home" in the README — or use desktop control, which always works.',
+      `Tried ${NEGOTIATE_ATTEMPTS} times without finding a direct path. This network probably blocks the `
+      + 'peer-to-peer UDP that streaming needs — phone hotspots and home Wi-Fi usually work where hotel, '
+      + 'office and campus networks often do not. Desktop control works anywhere, because it goes through the relay.',
       'Try again',
-      () => startWebRTC(),
+      () => { state.attempt = 0; startWebRTC(); },
     );
   }
 
   function teardownPeer() {
     clearNegotiateTimer();
     state.everConnected = false;
+    state.pendingIce = [];
     if (state.dc) { try { state.dc.close(); } catch {} state.dc = null; }
     if (state.pc) { try { state.pc.close(); } catch {} state.pc = null; }
     ui.video.srcObject = null;

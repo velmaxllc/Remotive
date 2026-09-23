@@ -48,38 +48,103 @@ AAD_H2V = rh.AAD_H2V
 AAD_V2H = rh.AAD_V2H
 MSG_JSON = rh.MSG_JSON
 
-# Public STUN so the two ends can discover their public address and connect directly across NATs.
-# STUN alone is enough on a LAN, but many networks (hotspots, hotel/office Wi-Fi, ISP CGNAT) block the
-# direct path entirely — then a TURN relay is the only way through. The relay hands us those servers
-# from /api/ice; see worker/src/ice.ts.
-DEFAULT_ICE = [RTCIceServer(urls=["stun:stun.cloudflare.com:3478", "stun:stun.l.google.com:19302"])]
+# STUN lets each end learn its own public address so the two can connect directly across NATs.
+#
+# aiortc uses only the *first* STUN server it is given (see connection_kwargs in rtcicetransport), so a
+# dead first entry means no public candidate at all — which looks exactly like a firewall problem and is
+# the difference between connecting from another network and not. We therefore probe them at startup
+# and hand aiortc one that actually answers.
+STUN_SERVERS = [
+    ("stun.l.google.com", 19302),
+    ("stun.cloudflare.com", 3478),
+    ("stun1.l.google.com", 19302),
+    ("stun.nextcloud.com", 3478),
+]
+DEFAULT_ICE = [RTCIceServer(urls=["stun:stun.l.google.com:19302"])]
 
 
-def fetch_ice_servers(base_url: str, auth_key_hex: str) -> list[RTCIceServer]:
-    """Ask the relay for ICE servers. Falls back to public STUN if it cannot say."""
-    endpoint = base_url.rstrip("/") + "/api/ice"
+def stun_probe(host: str, port: int, timeout: float = 1.5, sock=None) -> str | None:
+    """Send a STUN binding request; return our mapped public address, or None if the server is no use.
+
+    Hand-rolled because it runs before aiortc starts and we only need the one round trip:
+    a 20-byte binding request (RFC 5389) and the XOR-MAPPED-ADDRESS attribute out of the reply.
+
+    Pass `sock` to reuse one local port across probes — asking two servers from the *same* socket is
+    what distinguishes a symmetric NAT (a different public port per destination) from a friendly one.
+    """
+    import socket
+    import struct
+
+    txid = os.urandom(12)
+    request = struct.pack(">HHI12s", 0x0001, 0, 0x2112A442, txid)
+    own_socket = sock is None
+    if own_socket:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.settimeout(timeout)
     try:
-        req = urllib.request.Request(endpoint, headers={"Authorization": f"Bearer {auth_key_hex}"})
-        with urllib.request.urlopen(req, timeout=10) as res:
-            body = json.load(res)
-    except (urllib.error.URLError, OSError, ValueError) as exc:
-        log.warning("could not fetch ICE servers (%s); using public STUN only", exc)
+        sock.sendto(request, (host, port))
+        data, _ = sock.recvfrom(1024)
+    except (OSError, socket.timeout):
+        return None
+    finally:
+        if own_socket:
+            sock.close()
+
+    if len(data) < 20:
+        return None
+    msg_type, length, cookie, reply_txid = struct.unpack(">HHI12s", data[:20])
+    if msg_type != 0x0101 or cookie != 0x2112A442 or reply_txid != txid:
+        return None
+
+    # Walk the attributes looking for XOR-MAPPED-ADDRESS (0x0020).
+    offset = 20
+    end = min(len(data), 20 + length)
+    while offset + 4 <= end:
+        attr_type, attr_len = struct.unpack(">HH", data[offset:offset + 4])
+        value = data[offset + 4:offset + 4 + attr_len]
+        if attr_type == 0x0020 and len(value) >= 8 and value[1] == 0x01:   # IPv4
+            mapped_port = struct.unpack(">H", value[2:4])[0] ^ 0x2112
+            ip = bytes(b ^ c for b, c in zip(value[4:8], struct.pack(">I", 0x2112A442)))
+            return f"{'.'.join(str(b) for b in ip)}:{mapped_port}"
+        offset += 4 + attr_len + (-attr_len % 4)     # attributes are padded to 4 bytes
+    return None
+
+
+def working_stun_servers() -> list[RTCIceServer]:
+    """Pick a STUN server that actually answers, and report what kind of NAT we are behind."""
+    import socket
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        alive = []
+        for host, port in STUN_SERVERS:
+            mapped = stun_probe(host, port, sock=sock)      # same socket every time, on purpose
+            if mapped:
+                alive.append((host, port, mapped))
+                if len(alive) == 2:       # two answers is enough to classify the NAT
+                    break
+            else:
+                log.debug("STUN %s:%d did not answer", host, port)
+    finally:
+        sock.close()
+
+    if not alive:
+        log.warning("no STUN server answered — UDP looks blocked on this network. "
+                    "Streaming will only work on this LAN; desktop control still works anywhere.")
         return DEFAULT_ICE
 
-    servers = []
-    for entry in body.get("iceServers") or []:
-        urls = entry.get("urls") if isinstance(entry, dict) else None
-        if not urls:
-            continue
-        servers.append(RTCIceServer(urls=urls, username=entry.get("username"), credential=entry.get("credential")))
-    if not servers:
-        return DEFAULT_ICE
-    if body.get("turn"):
-        log.info("using a TURN relay — streaming should work from other networks too")
-    else:
-        log.info("STUN only: streaming will work on this LAN, but may not from other networks "
-                 "(see 'Streaming away from home' in the README)")
-    return servers
+    host, port, mapped = alive[0]
+    log.info("STUN ok via %s:%d — this PC is reachable as %s", host, port, mapped.rsplit(":", 1)[0])
+    if len(alive) == 2:
+        # One socket, two destinations. Same public ip:port for both = cone NAT, which hole punching
+        # crosses easily. A different port per destination = symmetric NAT, which it cannot.
+        if alive[0][2] == alive[1][2]:
+            log.info("NAT looks cone-type — connecting from other networks should work")
+        else:
+            log.warning("this router uses symmetric NAT (%s vs %s): connections from other networks "
+                        "will usually fail. Forwarding a UDP port to this PC, or using desktop "
+                        "control instead, is the way around it.", alive[0][2], alive[1][2])
+    return [RTCIceServer(urls=[f"stun:{host}:{port}"])]
 
 
 class ScreenTrack(VideoStreamTrack):
@@ -165,6 +230,8 @@ class WebRTCHost:
         self.ws_url = self.base_url.replace("https://", "wss://", 1).replace("http://", "ws://", 1) + "/ws/host"
         self.auth_key_hex = auth_key_hex
         self.ice_servers: list[RTCIceServer] | None = None
+        self.pending_ice: list[dict] = []   # candidates that arrived before the answer was ready
+        self.answered = False
         self.aead = rh.AESGCM(enc_key)
         self.monitor, self.width, self.height, self.fps = monitor, width, height, fps
         self.injector = rh.InputInjector(dry_run=dry_run)
@@ -268,19 +335,42 @@ class WebRTCHost:
         t = msg.get("t")
         if t == "rtc-offer":
             await self._on_offer(msg.get("sdp"))
-        elif t == "rtc-ice" and self.pc is not None:
+        elif t == "rtc-ice":
             c = msg.get("candidate")
             if c:
-                try:
-                    from aiortc.sdp import candidate_from_sdp
-                    cand = candidate_from_sdp(c["candidate"].split(":", 1)[1])
-                    cand.sdpMid = c.get("sdpMid")
-                    cand.sdpMLineIndex = c.get("sdpMLineIndex")
-                    await self.pc.addIceCandidate(cand)
-                except Exception as exc:
-                    log.debug("bad ICE candidate: %s", exc)
+                await self._add_ice(c)
         elif t == "rtc-stop":
             await self._teardown()
+
+    async def _add_ice(self, c: dict):
+        """Add one remote candidate, holding it back until the peer can actually accept it.
+
+        The browser trickles candidates the moment it creates its offer, so they routinely arrive
+        while we are still building the answer. aiortc drops candidates silently when no transceiver
+        exists yet (addIceCandidate just matches nothing), and a lost candidate is often the only
+        route the other side had — which is why this failed away from home but never on a LAN.
+        """
+        if self.pc is None or not self.answered:
+            self.pending_ice.append(c)
+            if len(self.pending_ice) > 128:        # a peer that never answers must not grow forever
+                self.pending_ice.pop(0)
+            return
+        try:
+            from aiortc.sdp import candidate_from_sdp
+            cand = candidate_from_sdp(c["candidate"].split(":", 1)[1])
+            cand.sdpMid = c.get("sdpMid")
+            cand.sdpMLineIndex = c.get("sdpMLineIndex")
+            await self.pc.addIceCandidate(cand)
+        except Exception as exc:
+            log.debug("bad ICE candidate: %s", exc)
+
+    async def _flush_ice(self):
+        """Replay everything that arrived too early, now that the answer is in place."""
+        queued, self.pending_ice = self.pending_ice, []
+        if queued:
+            log.info("applying %d ICE candidate(s) that arrived before the answer was ready", len(queued))
+        for c in queued:
+            await self._add_ice(c)
 
     async def _on_offer(self, sdp: str):
         if not sdp:
@@ -291,7 +381,7 @@ class WebRTCHost:
             self.ice_servers = await asyncio.to_thread(fetch_ice_servers, self.base_url, self.auth_key_hex)
         pc = RTCPeerConnection(RTCConfiguration(iceServers=self.ice_servers))
         self.pc = pc
-        self.track = ScreenTrack(self.monitor, self.width, self.height, self.fps)
+        self.answered = False
 
         @pc.on("datachannel")
         def on_dc(channel):
@@ -309,19 +399,27 @@ class WebRTCHost:
             if pc.connectionState in ("failed", "closed", "disconnected"):
                 await self._teardown()
 
-        @pc.on("icecandidate")
-        async def on_ice(candidate):
-            if candidate:
-                await self.send({"t": "rtc-ice", "candidate": {
-                    "candidate": "candidate:" + candidate.to_sdp(),
-                    "sdpMid": candidate.sdpMid, "sdpMLineIndex": candidate.sdpMLineIndex}})
+        # No "icecandidate" handler: aiortc gathers every candidate *before* setLocalDescription
+        # returns and writes them into the answer SDP, so there is nothing to trickle back.
 
-        await self.pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type="offer"))
-        self.pc.addTrack(self.track)     # attaches to the browser's recvonly video transceiver
-        _prefer_h264(self.pc)
-        answer = await self.pc.createAnswer()
-        await self.pc.setLocalDescription(answer)
-        await self.send({"t": "rtc-answer", "sdp": self.pc.localDescription.sdp})
+        # Set the remote description first. Building the capture track can take a moment, and until
+        # this call lands every candidate the browser sends us would be thrown away.
+        await pc.setRemoteDescription(RTCSessionDescription(sdp=sdp, type="offer"))
+
+        self.track = ScreenTrack(self.monitor, self.width, self.height, self.fps)
+        pc.addTrack(self.track)          # attaches to the browser's recvonly video transceiver
+        _prefer_h264(pc)
+        answer = await pc.createAnswer()
+        await pc.setLocalDescription(answer)     # gathers ICE; may take a second or two
+
+        n_candidates = pc.localDescription.sdp.count("a=candidate:")
+        log.info("answering with %d ICE candidate(s)", n_candidates)
+        if not n_candidates:
+            log.warning("no ICE candidates gathered — this PC cannot be reached from anywhere")
+
+        await self.send({"t": "rtc-answer", "sdp": pc.localDescription.sdp})
+        self.answered = True
+        await self._flush_ice()
 
     def _handle_input(self, message):
         try:
@@ -344,6 +442,8 @@ class WebRTCHost:
             inj.key(m.get("key"), m.get("code"), False)
 
     async def _teardown(self):
+        self.answered = False
+        self.pending_ice.clear()    # candidates belong to the peer we are dropping
         if self.track is not None:
             self.track.stop()
             self.track = None
